@@ -1,0 +1,72 @@
+# US Household Income Exploratory Date Analysis (EDA)
+
+
+SELECT * 
+FROM ushouseholdincome
+;
+# In the following query, I am going to find out 10 top states in terms  of land and water resources.
+ 
+SELECT State_Name, SUM(ALand), SUM(AWater)
+FROM ushouseholdincome
+GROUP BY State_Name
+ORDER By 2 DESC
+LIMIT 10
+;
+
+SELECT * 
+FROM ushouseholdincome_statistics
+;
+
+# In the following query, I am going to find out the 10 top states in terms of mean and median household income.
+
+SELECT u.State_Name, ROUND(AVG(Mean),1), ROUND(AVG(Median),1)
+FROM ushouseholdincome u
+INNER JOIN ushouseholdincome_statistics us
+ON u.id = us.id
+WHERE Mean != 0
+GROUP BY u.State_Name
+ORDER BY 2 DESC
+LIMIT 10
+;
+
+# finding the top Types that have the highes mmean and median. and then using having to apply a filter on Group by since some types have lower number of data. so ask to show the data for types which have more than 100 records.
+
+SELECT Type, COUNT(Type), ROUND(AVG(Mean),1), ROUND(AVG(Median),1)
+FROM ushouseholdincome u
+INNER JOIN ushouseholdincome_statistics us
+ON u.id = us.id
+WHERE Mean != 0
+GROUP BY Type
+HAVING COUNT(Type) > 100
+ORDER BY 2 DESC
+;
+
+# finding the mean for the cities
+
+SELECT u.State_Name, City, ROUND(AVG(Mean),1)
+FROM ushouseholdincome u
+INNER JOIN ushouseholdincome_statistics us
+ON u.id = us.id
+GROUP BY u.State_Name, City
+ORDER BY 3 DESC
+LIMIT 20
+;
+
+ # Finding the Average mean for the cities in Indiana State.
+ 
+SELECT u.State_Name, City, ROUND(AVG(Mean),1)
+FROM ushouseholdincome u
+INNER JOIN ushouseholdincome_statistics us
+ON u.id = us.id
+WHERE u.State_name LIKE 'Indiana'
+GROUP BY u.State_Name, City
+ORDER BY 3 ASC;
+
+
+# Finding the Avearge mean for Muncie where I am doing my maters.
+SELECT  u.City, ROUND(AVG(Mean),1)
+FROM ushouseholdincome u
+LEFT JOIN ushouseholdincome_statistics us
+ON u.id = us.id
+WHERE U.city = 'Muncie' 
+;
