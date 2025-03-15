@@ -1,0 +1,99 @@
+-- Automated Data Cleaning
+
+SELECT *
+FROM ushouseholdincome;
+
+SELECT * FROM us_household_income.ushouseholdincome_cleaned;
+
+-- Create stored procedure that start by creating a raw table, copy the data from the original one to the new one to have a back up file. be noted that a column called Timestamp will be added to the new table to do the data celaning every time based off of the timestamp. then, a query for data cleaning by using row number written and then some corrections will be done for standardization. after creating the procedure, we can call it. So, every time we call the procedure, a new table creates and then data cleaning and standardization will be done. Then, an Event creates to do the data cleaning through the stored procedure. 
+
+DROP PROCEDURE IF EXISTS copy_and_clean_Data
+DELIMITER $$
+CREATE PROCEDURE copy_and_clean_Data()
+BEGIN
+
+-- CReate a Copy of the Table
+
+	CREATE TABLE IF NOT EXISTS `ushouseholdincome_Cleaned` (
+	  `row_id` int DEFAULT NULL,
+	  `id` int DEFAULT NULL,
+	  `State_Code` int DEFAULT NULL,
+	  `State_Name` text,
+	  `State_ab` text,
+	  `County` text,
+	  `City` text,
+	  `Place` text,
+	  `Type` text,
+	  `Primary` text,
+	  `Zip_Code` int DEFAULT NULL,
+	  `Area_Code` int DEFAULT NULL,
+	  `ALand` int DEFAULT NULL,
+	  `AWater` int DEFAULT NULL,
+	  `Lat` double DEFAULT NULL,
+	  `Lon` double DEFAULT NULL,
+	  `TimeStamp` TIMESTAMP DEFAULT NULL
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Copy data to the new table
+	INSERT INTO ushouseholdincome_cleaned
+    SELECT *, CURRENT_TIMESTAMP
+	FROM ushouseholdincome;
+
+-- Data Cleaning, In the following query, first the row_id of the duplicates by using ROW_NUMBER() window function are identified, then by putting that query as an inner query of an outer DELETE query, we can delete the duplicates. NOTE: for applying the filtering on the ROW_number function, that query is an inner query of the outer query.
+
+	DELETE FROM ushouseholdincome_cleaned
+	WHERE row_id IN (
+	SELECT row_id
+	FROM (SELECT row_id, id , ROW_NUMBER() OVER (PARTITION BY id, `TimeStamp` ORDER BY id, `TimeStamp`) AS row_num
+	FROM ushouseholdincome) AS duplicates
+	WHERE row_num > 1);
+
+-- Data Standardization
+
+	UPDATE ushouseholdincome_cleaned
+	SET State_Name = 'Georgia'
+	WHERE State_Name = 'georia';
+
+	UPDATE ushouseholdincome_cleaned
+	SET County = UPPER(County);
+
+	UPDATE ushouseholdincome_cleaned
+	SET City = UPPER(City);
+
+	UPDATE ushouseholdincome_cleaned
+	SET Place = UPPER(Place);
+
+	UPDATE ushouseholdincome_cleaned
+	SET State_Name = UPPER(State_Name);
+
+	UPDATE ushouseholdincome_cleaned
+	SET `Type` = 'CDP'
+	WHERE `Type` = 'CPD';
+
+	UPDATE ushouseholdincome_cleaned
+	SET `Type` = 'Borough'
+	WHERE `Type` = 'Boroughs';
+		
+END $$
+DELIMITER ;
+
+CALL copy_and_clean_Data();
+
+
+-- CREATE EVENT to do the procedure and data cleaning every 30 day.
+
+DROP EVENT run_data_cleaning;
+CREATE EVENT run_data_cleaning
+	ON SCHEDULE EVERY 30 DAY
+	DO CALL copy_and_clean_Data();
+
+-- Create Trigger. BUt, if yoy insert data into the table, the trigger will not work. MySQL does not work if store procedure encompasses update or creating (commit).
+
+DELIMITER $$
+CREATE TRIGGER transfer_clean_data
+	AFTER INSERT ON ushouseholdincome
+    FOR EACH ROW
+BEGIN
+CALL copy_and_clean_Data();
+END $$
+DELIMITER ;
